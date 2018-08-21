@@ -131,11 +131,15 @@ class BackgroundProcess
 
         // stop the web server when the lock file is removed
         while ($process->isRunning()) {
-            if (!array_key_exists($process->getPid(), $manager)) {
+            if (!$manager->exists($state->getPid())) {
                 $process->stop(10, $config->getSignal());
             }
 
             sleep(1);
+        }
+
+        if ($manager->exists($state->getPid())) {
+            $manager->remove($state->getPid());
         }
 
         return self::STOPPED;
