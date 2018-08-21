@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+
+<container xmlns="http://symfony.com/schema/dic/services"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+
+    <services>
+        <defaults public="false" />
+
+        <service id="background_process.command.run" class="Cocur\BackgroundProcess\Command\BackgroundProcessRunCommand">
+            <argument>%kernel.environment%</argument>
+            <tag name="console.command" command="background_process:run" />
+        </service>
+
+        <service id="background_process.command.start" class="Cocur\BackgroundProcess\Command\BackgroundProcessStartCommand">
+            <argument>%kernel.environment%</argument>
+            <tag name="console.command" command="background_process:start" />
+        </service>
+
+        <service id="background_process.command.stop" class="Cocur\BackgroundProcess\Command\BackgroundProcessStopCommand">
+            <tag name="console.command" command="background_process:stop" />
+        </service>
+
+        <service id="background_process.command.status" class="Cocur\BackgroundProcess\Command\BackgroundProcessStatusCommand">
+            <tag name="console.command" command="background_process:status" />
+        </service>
+    </services>
+</container>
