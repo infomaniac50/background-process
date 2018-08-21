@@ -1,15 +1,20 @@
 <?php
-
-/**
- * This file is part of cocur/background-process.
+/*
+ * This file is part of the BackgroundProcess package.
  *
- * (c) 2013-2015 Florian Eckerstorfer
+ * (c) Florian Eckerstorfer
+ * (c) Derek Chafin <infomaniac50@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
-
 namespace Cocur\BackgroundProcess;
 
-use Exception;
 use RuntimeException;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\ExecutableFinder;
+use Symfony\Component\Process\Process;
 
 /**
  * BackgroundProcess.
@@ -17,175 +22,167 @@ use RuntimeException;
  * Runs a process in the background.
  *
  * @author    Florian Eckerstorfer <florian@eckerstorfer.co>
+ * @author    Derek Chafin <infomaniac50@gmail.com>
+ *
  * @copyright 2013-2015 Florian Eckerstorfer
+ * @copyright 2018 Derek Chafin
+ *
  * @license   http://opensource.org/licenses/MIT The MIT License
- * @link      https://florian.ec/articles/running-background-processes-in-php/ Running background processes in PHP
+ *
+ * @see      https://florian.ec/articles/running-background-processes-in-php/ Running background processes in PHP
  */
 class BackgroundProcess
 {
-    const OS_WINDOWS = 1;
-    const OS_NIX     = 2;
-    const OS_OTHER   = 3;
-
     /**
-     * @var string
+     * @var int
      */
-    private $command;
+    const STARTED = 0;
 
     /**
      * @var int
      */
-    private $pid;
+    const STOPPED = 1;
 
     /**
-     * @var int
+     * @var InputInterface
      */
-    protected $serverOS;
+    private $input;
 
     /**
-     * @param string $command The command to execute
-     *
-     * @codeCoverageIgnore
+     * @var OutputInterface
      */
-    public function __construct($command = null)
+    private $output;
+
+    /**
+     * @param InputInterface  $input
+     * @param OutputInterface $output
+     */
+    public function __construct(InputInterface $input, OutputInterface $output)
     {
-        $this->command  = $command;
-        $this->serverOS = $this->getOS();
+        $this->input  = $input;
+        $this->output = $output;
     }
 
     /**
-     * Runs the command in a background process.
-     *
-     * @param string $outputFile File to write the output of the process to; defaults to /dev/null
-     *                           currently $outputFile has no effect when used in conjunction with a Windows server
-     * @param bool $append - set to true if output should be appended to $outputfile
+     * @param BackgroundProcessConfig $config
+     * @param bool                    $disableOutput
+     * @param callable|null           $callback
      */
-    public function run($outputFile = '/dev/null', $append = false)
+    public function run(BackgroundProcessConfig $config, $disableOutput = true, callable $callback = null)
     {
-        if($this->command === null) {
-            return;
-        }
-
-        switch ($this->getOS()) {
-            case self::OS_WINDOWS:
-                shell_exec(sprintf('%s &', $this->command, $outputFile));
-                break;
-            case self::OS_NIX:
-                $this->pid = (int)shell_exec(sprintf('%s %s %s 2>&1 & echo $!', $this->command, ($append) ? '>>' : '>', $outputFile));
-                break;
-            default:
-                throw new RuntimeException(sprintf(
-                    'Could not execute command "%s" because operating system "%s" is not supported by '.
-                    'Cocur\BackgroundProcess.',
-                    $this->command,
-                    PHP_OS
-                ));
-        }
-    }
-
-    /**
-     * Returns if the process is currently running.
-     *
-     * @return bool TRUE if the process is running, FALSE if not.
-     */
-    public function isRunning()
-    {
-        $this->checkSupportingOS('Cocur\BackgroundProcess can only check if a process is running on *nix-based '.
-                                 'systems, such as Unix, Linux or Mac OS X. You are running "%s".');
-
-        try {
-            $result = shell_exec(sprintf('ps %d 2>&1', $this->pid));
-            if (count(preg_split("/\n/", $result)) > 2 && !preg_match('/ERROR: Process ID out of range/', $result)) {
-                return true;
+        $process = $this->createServerProcess($config);
+        if ($disableOutput) {
+            $process->disableOutput();
+            $callback = null;
+        } else {
+            try {
+                $process->setTty(true);
+                $callback = null;
+            } catch (RuntimeException $e) {
             }
-        } catch (Exception $e) {
         }
 
-        return false;
-    }
+        $process->run($callback);
 
-    /**
-     * Stops the process.
-     *
-     * @return bool `true` if the processes was stopped, `false` otherwise.
-     */
-    public function stop()
-    {
-        $this->checkSupportingOS('Cocur\BackgroundProcess can only stop a process on *nix-based systems, such as '.
-                                 'Unix, Linux or Mac OS X. You are running "%s".');
-
-        try {
-            $result = shell_exec(sprintf('kill %d 2>&1', $this->pid));
-            if (!preg_match('/No such process/', $result)) {
-                return true;
+        if (!$process->isSuccessful()) {
+            $error = 'Server terminated unexpectedly.';
+            if ($process->isOutputDisabled()) {
+                $error .= ' Run the command again with -v option for more details.';
             }
-        } catch (Exception $e) {
+
+            throw new \RuntimeException($error);
         }
-
-        return false;
     }
 
     /**
-     * Returns the ID of the process.
+     * @param BackgroundProcessConfig $config
+     * @param null                    $pidFile
      *
-     * @return int The ID of the process
-     */
-    public function getPid()
-    {
-        $this->checkSupportingOS('Cocur\BackgroundProcess can only return the PID of a process on *nix-based systems, '.
-                                 'such as Unix, Linux or Mac OS X. You are running "%s".');
-
-        return $this->pid;
-    }
-
-    /**
-     * Set the process id.
-     *
-     * @param $pid
-     */
-    protected function setPid($pid)
-    {
-        $this->pid = $pid;
-    }
-
-    /**
      * @return int
      */
-    protected function getOS()
+    public function start(BackgroundProcessConfig $config, $pidFile = null)
     {
-        $os = strtoupper(PHP_OS);
+        $pid = pcntl_fork();
 
-        if (substr($os, 0, 3) === 'WIN') {
-            return self::OS_WINDOWS;
-        } else if ($os === 'LINUX' || $os === 'FREEBSD' || $os === 'DARWIN') {
-            return self::OS_NIX;
+        if ($pid < 0) {
+            throw new \RuntimeException('Unable to start the server process.');
         }
 
-        return self::OS_OTHER;
+        if ($pid > 0) {
+            return self::STARTED;
+        }
+
+        if (posix_setsid() < 0) {
+            throw new \RuntimeException('Unable to set the child process as session leader.');
+        }
+
+        $manager = new BackgroundProcessStateManager($pidFile);
+
+        $process = $this->createServerProcess($config);
+        $process->disableOutput();
+        $process->start();
+
+        if (!$process->isRunning($config)) {
+            throw new \RuntimeException('Unable to start the server process.');
+        }
+
+        $state = new BackgroundProcessState($process->getPid(), $config);
+        $manager[$process->getPid()] = $state;
+
+        // stop the web server when the lock file is removed
+        while ($process->isRunning()) {
+            if (!array_key_exists($process->getPid(), $manager)) {
+                $process->stop(10, $config->getSignal());
+            }
+
+            sleep(1);
+        }
+
+        return self::STOPPED;
     }
 
     /**
-     * @param string $message Exception message if the OS is not supported
+     * @param int         $pid
+     * @param string|null $pidFile
      *
-     * @throws RuntimeException if the operating system is not supported by Cocur\BackgroundProcess
+     * @return void
      *
-     * @codeCoverageIgnore
+     * @throws RuntimeException
      */
-    protected function checkSupportingOS($message)
+    public function stop(int $pid, $pidFile = null)
     {
-        if ($this->getOS() !== self::OS_NIX) {
-            throw new RuntimeException(sprintf($message, PHP_OS));
+        $manager = new BackgroundProcessStateManager($pidFile);
+
+        if (!$manager) {
+            throw new \RuntimeException(sprintf('The process with PID %d does not exist.', $pid));
         }
+
+        unset($manager[$pid]);
     }
 
     /**
-     * @param int $pid PID of process to resume
+     * @param BackgroundProcessConfig $config
      *
-     * @return Cocur\BackgroundProcess\BackgroundProcess
+     * @return Process The process
      */
-    static public function createFromPID($pid) {
-        $process = new self();
-        $process->setPid($pid);
+    private function createServerProcess(BackgroundProcessConfig $config)
+    {
+        $argv = $config->getCommand();
+        $argc = array_shift($argv);
+
+        $finder = new ExecutableFinder();
+        if (false === $binary = $finder->find($argc)) {
+            throw new \RuntimeException('Unable to find the binary.');
+        }
+
+        $process = new Process(array_merge(array($binary), $argv));
+        $process->setWorkingDirectory(posix_getcwd());
+        $process->setTimeout(null);
+
+        if (\in_array('APP_ENV', explode(',', getenv('SYMFONY_DOTENV_VARS')))) {
+            $process->setEnv(array('APP_ENV' => false));
+            $process->inheritEnvironmentVariables();
+        }
 
         return $process;
     }
