@@ -11,9 +11,8 @@
 namespace Cocur\BackgroundProcess;
 
 use RuntimeException;
-use SQLiteDatabase;
-use SQLiteException;
-use SQLiteResult;
+use SQLite3;
+use SQLite3Result;
 
 /**
  * BackgroundProcessState.
@@ -28,10 +27,8 @@ use SQLiteResult;
  */
 class BackgroundProcessStateManager
 {
-    private $errorMessage;
-
     /**
-     * @var SQLiteDatabase
+     * @var SQLite3
      */
     private $pidDb;
 
@@ -40,7 +37,7 @@ class BackgroundProcessStateManager
      */
     public function __construct(string $pidFile = null)
     {
-        /** @var SQLiteDatabase $pidDb */
+        /** @var SQLite3 $pidDb */
         if (null === $pidDb = $this->getDatabase($pidFile)) {
             throw new \RuntimeException("Could not open PID state file.");
         }
@@ -58,11 +55,18 @@ class BackgroundProcessStateManager
     public function add(int $pid, BackgroundProcessState $value)
     {
         $sql = <<<SQL
-INSERT INTO main.processes (pid, command, state)
+INSERT INTO main.processes (pid, state)
 VALUES
-    (%d, %s, %s)
+    (:pid, :state)
 SQL;
-        $this->pidDb->queryExec(sprintf($sql, $pid, $value->getCommandLine(), serialize($value)));
+        $statement = $this->pidDb->prepare($sql);
+
+        $statement->bindValue('pid', $pid, SQLITE3_INTEGER);
+        $statement->bindValue('state', serialize($value), SQLITE3_BLOB);
+
+        if (false !== $result = $statement->execute()) {
+            $result->finalize();
+        }
     }
 
     /**
@@ -70,14 +74,16 @@ SQL;
      */
     public function all()
     {
-        /** @var SQLiteResult $result */
+        /** @var SQLite3Result $result */
         $result = $this->pidDb->query("SELECT * FROM main.processes");
 
         /** @var BackgroundProcessState[] $state */
         $states = array();
 
-        foreach ($result as $row) {
-            $states[] = unserialize($row['state']);
+        if ($result instanceof SQLite3Result) {
+            foreach ($result as $row) {
+                $states[] = unserialize($row['state']);
+            }
         }
 
         return $states;
@@ -90,10 +96,9 @@ SQL;
      */
     public function exists(int $pid): bool
     {
-        /** @var SQLiteResult $result */
-        $result = $this->pidDb->query("SELECT * FROM main.processes WHERE pid=$pid");
+        $result = $this->pidDb->querySingle("SELECT COUNT(pid) FROM main.processes WHERE pid=$pid");
 
-        return $result->numRows() > 0;
+        return !is_null($result) && $result > 0;
     }
 
     /**
@@ -103,15 +108,11 @@ SQL;
      */
     public function get(int $pid):  ? BackgroundProcessState
     {
-        /** @var SQLiteResult $result */
-        $result = $this->pidDb->query("SELECT * FROM main.processes WHERE pid=$pid");
-
         /** @var BackgroundProcessState $state */
-        $state = null;
+        $state = $this->pidDb->querySingle("SELECT state FROM main.processes WHERE pid=$pid");
 
-        if ($result->numRows() > 0) {
-            $row   = $result->fetch();
-            $state = unserialize($row['state']);
+        if (!is_null($state)) {
+            $state = unserialize($state);
         }
 
         return $state;
@@ -126,19 +127,19 @@ SQL;
     {
         $sql = "DELETE FROM main.processes WHERE pid={$pid}";
 
-        $this->pidDb->queryExec($sql);
+        $this->pidDb->exec($sql);
     }
 
     /**
      * @param string|null $pidFile
      *
-     * @return SQLiteDatabase|null
+     * @return SQLite3
      */
     private function getDatabase($pidFile = null)
     {
         $pidFile = $pidFile ?: $this->getDefaultPidFile();
 
-        $pidDb = new SQLiteDatabase($pidFile, 0666, $this->errorMessage);
+        $pidDb = new SQLite3($pidFile);
 
         return $pidDb;
     }
@@ -159,16 +160,9 @@ SQL;
         $sql = <<<SQL
 CREATE TABLE IF NOT EXISTS main.processes (
     pid INTEGER PRIMARY KEY,
-    command TEXT,
     state BLOB
 );
 SQL;
-        if (!$this->pidDb->queryExec($sql, $this->errorMessage)) {
-            throw new RuntimeException(
-                "Could not setup PID state file.",
-                $this->pidDb->lastError(),
-                new SQLiteException($this->errorMessage)
-            );
-        }
+        $this->pidDb->exec($sql);
     }
 }
