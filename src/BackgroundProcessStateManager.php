@@ -10,9 +10,9 @@
  */
 namespace Cocur\BackgroundProcess;
 
-use SQLiteException;
 use RuntimeException;
 use SQLiteDatabase;
+use SQLiteException;
 use SQLiteResult;
 
 /**
