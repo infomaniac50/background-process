@@ -127,7 +127,7 @@ class BackgroundProcess
         }
 
         $state = new BackgroundProcessState($process->getPid(), $config);
-        $manager[$process->getPid()] = $state;
+        $manager->add($process->getPid(), $state);
 
         // stop the web server when the lock file is removed
         while ($process->isRunning()) {
@@ -153,11 +153,11 @@ class BackgroundProcess
     {
         $manager = new BackgroundProcessStateManager($pidFile);
 
-        if (!$manager) {
+        if (!$manager->exists($pid)) {
             throw new \RuntimeException(sprintf('The process with PID %d does not exist.', $pid));
         }
 
-        unset($manager[$pid]);
+        $manager->remove($pid);
     }
 
     /**
