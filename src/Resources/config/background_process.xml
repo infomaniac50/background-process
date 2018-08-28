@@ -11,6 +11,12 @@
             <argument>%kernel.environment%</argument>
         </service>
 
+        <service id="background_process.command.list" class="Cocur\BackgroundProcess\Command\BackgroundProcessListCommand">
+            <argument type="service" id="background_process.manager" />
+            <argument>%kernel.environment%</argument>
+            <tag name="console.command" command="background_process:list" />
+        </service>
+
         <service id="background_process.command.run" class="Cocur\BackgroundProcess\Command\BackgroundProcessRunCommand">
             <argument type="service" id="background_process.manager" />
             <argument>%kernel.environment%</argument>
