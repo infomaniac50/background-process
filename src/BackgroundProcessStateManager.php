@@ -157,6 +157,8 @@ SQL;
      */
     private function init()
     {
+        $this->pidDb->enableExceptions(true);
+
         $sql = <<<SQL
 CREATE TABLE IF NOT EXISTS main.processes (
     pid INTEGER PRIMARY KEY,
