@@ -12,12 +12,10 @@
 
 namespace Cocur\BackgroundProcess\Command;
 
-use Cocur\BackgroundProcess\BackgroundProcess;
 use Cocur\BackgroundProcess\BackgroundProcessStateManager;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Exception\InvalidArgumentException;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -70,30 +68,5 @@ class BackgroundProcessStatusCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $io = new SymfonyStyle($input, $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output);
-        $server = new BackgroundProcess();
-        if ($filter = $input->getOption('filter')) {
-            if ($server->isRunning($input->getOption('pidfile'))) {
-                list($host, $port) = explode(':', $address = $server->getAddress($input->getOption('pidfile')));
-                if ('address' === $filter) {
-                    $output->write($address);
-                } elseif ('host' === $filter) {
-                    $output->write($host);
-                } elseif ('port' === $filter) {
-                    $output->write($port);
-                } else {
-                    throw new InvalidArgumentException(sprintf('"%s" is not a valid filter.', $filter));
-                }
-            } else {
-                return 1;
-            }
-        } else {
-            if ($server->isRunning($input->getOption('pidfile'))) {
-                $io->success(sprintf('Web server still listening on http://%s', $server->getAddress($input->getOption('pidfile'))));
-            } else {
-                $io->warning('No web server is listening.');
-
-                return 1;
-            }
-        }
     }
 }
