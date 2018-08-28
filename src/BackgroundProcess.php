@@ -49,18 +49,25 @@ class BackgroundProcess
     private $input;
 
     /**
+     * @var BackgroundProcessStateManager
+     */
+    private $manager;
+
+    /**
      * @var OutputInterface
      */
     private $output;
 
     /**
-     * @param InputInterface  $input
-     * @param OutputInterface $output
+     * @param InputInterface                $input
+     * @param OutputInterface               $output
+     * @param BackgroundProcessStateManager $manager
      */
-    public function __construct(InputInterface $input, OutputInterface $output)
+    public function __construct(InputInterface $input, OutputInterface $output, BackgroundProcessStateManager $manager)
     {
-        $this->input  = $input;
-        $this->output = $output;
+        $this->input   = $input;
+        $this->output  = $output;
+        $this->manager = $manager;
     }
 
     /**
@@ -96,11 +103,10 @@ class BackgroundProcess
 
     /**
      * @param BackgroundProcessState $state
-     * @param null                    $pidFile
      *
      * @return int
      */
-    public function start(BackgroundProcessState $state, $pidFile = null)
+    public function start(BackgroundProcessState $state)
     {
         $pid = pcntl_fork();
 
@@ -116,8 +122,6 @@ class BackgroundProcess
             throw new \RuntimeException('Unable to set the child process as session leader.');
         }
 
-        $manager = new BackgroundProcessStateManager($pidFile);
-
         $process = $this->createServerProcess($state);
         $process->disableOutput();
         $process->start();
@@ -127,41 +131,38 @@ class BackgroundProcess
         }
 
         $state = new BackgroundProcessState($process->getPid(), $state);
-        $manager->add($process->getPid(), $state);
+        $this->manager->add($process->getPid(), $state);
 
         // stop the web server when the lock file is removed
         while ($process->isRunning()) {
-            if (!$manager->exists($state->getPid())) {
+            if (!$this->manager->exists($state->getPid())) {
                 $process->stop(10, $state->getSignal());
             }
 
             sleep(1);
         }
 
-        if ($manager->exists($state->getPid())) {
-            $manager->remove($state->getPid());
+        if ($this->manager->exists($state->getPid())) {
+            $this->manager->remove($state->getPid());
         }
 
         return self::STOPPED;
     }
 
     /**
-     * @param int         $pid
-     * @param string|null $pidFile
+     * @param int $pid
      *
      * @return void
      *
      * @throws RuntimeException
      */
-    public function stop(int $pid, $pidFile = null)
+    public function stop(int $pid)
     {
-        $manager = new BackgroundProcessStateManager($pidFile);
-
-        if (!$manager->exists($pid)) {
+        if (!$this->manager->exists($pid)) {
             throw new \RuntimeException(sprintf('The process with PID %d does not exist.', $pid));
         }
 
-        $manager->remove($pid);
+        $this->manager->remove($pid);
     }
 
     /**

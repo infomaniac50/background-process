@@ -13,6 +13,7 @@
 namespace Cocur\BackgroundProcess\Command;
 
 use Cocur\BackgroundProcess\BackgroundProcess;
+use Cocur\BackgroundProcess\BackgroundProcessStateManager;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputInterface;
@@ -32,15 +33,34 @@ class BackgroundProcessStatusCommand extends Command
     protected static $defaultName = 'background_process:status';
 
     /**
+     * @var string|null $environment
+     */
+    private $environment;
+
+    /**
+     * @var BackgroundProcessStateManager $manager
+     */
+    private $manager;
+
+    /**
+     * @param BackgroundProcessStateManager $manager
+     * @param string|null                   $environment
+     */
+    public function __construct(BackgroundProcessStateManager $manager, string $environment = null)
+    {
+        $this->environment = $environment;
+        $this->manager     = $manager;
+
+        parent::__construct();
+    }
+
+    /**
      * {@inheritdoc}
      */
     protected function configure()
     {
         $this
-            ->setDefinition(array(
-                new InputOption('pidfile', null, InputOption::VALUE_REQUIRED, 'PID file'),
-                new InputOption('filter', null, InputOption::VALUE_REQUIRED, 'The value to display (one of port, host, or address)'),
-            ));
+            ->addArgument('pid', InputArgument::OPTIONAL, '', 'all')
         ;
     }
 

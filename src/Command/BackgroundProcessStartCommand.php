@@ -14,6 +14,7 @@ namespace Cocur\BackgroundProcess\Command;
 
 use Cocur\BackgroundProcess\BackgroundProcess;
 use Cocur\BackgroundProcess\BackgroundProcessConfig;
+use Cocur\BackgroundProcess\BackgroundProcessStateManager;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -42,11 +43,18 @@ class BackgroundProcessStartCommand extends Command
     private $environment;
 
     /**
-     * @param string|null $environment
+     * @var BackgroundProcessStateManager $manager
      */
-    public function __construct(string $environment = null)
+    private $manager;
+
+    /**
+     * @param BackgroundProcessStateManager $manager
+     * @param string|null                   $environment
+     */
+    public function __construct(BackgroundProcessStateManager $manager, string $environment = null)
     {
-        $this->environment  = $environment;
+        $this->environment = $environment;
+        $this->manager     = $manager;
 
         parent::__construct();
     }
@@ -95,7 +103,7 @@ class BackgroundProcessStartCommand extends Command
         }
 
         try {
-            $backgroundProcess = new BackgroundProcess($input, $output);
+            $backgroundProcess = new BackgroundProcess($input, $output, $this->manager);
             $config            = new BackgroundProcessConfig($command, $input->getOption('signal'));
 
             if (BackgroundProcess::STARTED === $backgroundProcess->start($config)) {

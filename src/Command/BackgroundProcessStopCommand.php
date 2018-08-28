@@ -13,7 +13,7 @@
 namespace Cocur\BackgroundProcess\Command;
 
 use Cocur\BackgroundProcess\BackgroundProcess;
-use Cocur\BackgroundProcess\BackgroundProcessConfig;
+use Cocur\BackgroundProcess\BackgroundProcessStateManager;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -31,6 +31,28 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class BackgroundProcessStopCommand extends Command
 {
     protected static $defaultName = 'background_process:stop';
+
+    /**
+     * @var string|null $environment
+     */
+    private $environment;
+
+    /**
+     * @var BackgroundProcessStateManager $manager
+     */
+    private $manager;
+
+    /**
+     * @param BackgroundProcessStateManager $manager
+     * @param string|null                   $environment
+     */
+    public function __construct(BackgroundProcessStateManager $manager, string $environment = null)
+    {
+        $this->environment = $environment;
+        $this->manager     = $manager;
+
+        parent::__construct();
+    }
 
     /**
      * {@inheritdoc}
@@ -59,7 +81,7 @@ class BackgroundProcessStopCommand extends Command
         }
 
         try {
-            $backgroundProcess = new BackgroundProcess($input, $output);
+            $backgroundProcess = new BackgroundProcess($input, $output, $this->manager);
 
             $backgroundProcess->stop($input->getArgument("pid"));
             $io->success('Stopped the background command.');
