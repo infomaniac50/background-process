@@ -26,9 +26,11 @@ use Symfony\Component\Process\Process;
 class BackgroundProcessState
 {
     /**
-     * @var BackgroundProcessConfig
+     * The command to execute
+     *
+     * @var string
      */
-    private $config;
+    private $command;
 
     /**
      * @var int
@@ -36,21 +38,28 @@ class BackgroundProcessState
     private $pid;
 
     /**
-     * @param int                     $pid
-     * @param BackgroundProcessConfig $config
+     * @var int|null
      */
-    public function __construct(int $pid, BackgroundProcessConfig $config)
+    private $signal;
+
+    /**
+     * @param int      $pid
+     * @param string   $command The command to execute
+     * @param int|null $signal
+     */
+    public function __construct(int $pid, $command, $signal = null)
     {
-        $this->pid    = $pid;
-        $this->config = $config;
+        $this->pid     = $pid;
+        $this->command = $command;
+        $this->signal  = $signal;
     }
 
     /**
-     * @return BackgroundProcessConfig
+     * @return string
      */
-    public function getConfig(): BackgroundProcessConfig
+    public function getCommand(): string
     {
-        return $this->config;
+        return $this->command;
     }
 
     /**
@@ -62,13 +71,21 @@ class BackgroundProcessState
     }
 
     /**
-     * @param BackgroundProcessConfig $config
+     * @return int|null
+     */
+    public function getSignal():  ? int
+    {
+        return $this->signal;
+    }
+
+    /**
+     * @param string $command
      *
      * @return static
      */
-    public function setConfig(BackgroundProcessConfig $config)
+    public function setCommand(string $command)
     {
-        $this->config = $config;
+        $this->command = $command;
 
         return $this;
     }
@@ -81,6 +98,18 @@ class BackgroundProcessState
     public function setPid(int $pid)
     {
         $this->pid = $pid;
+
+        return $this;
+    }
+
+    /**
+     * @param int|null $signal
+     *
+     * @return static
+     */
+    public function setSignal(int $signal = null)
+    {
+        $this->signal = $signal;
 
         return $this;
     }
