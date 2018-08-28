@@ -64,13 +64,13 @@ class BackgroundProcess
     }
 
     /**
-     * @param BackgroundProcessConfig $config
-     * @param bool                    $disableOutput
-     * @param callable|null           $callback
+     * @param BackgroundProcessState $state
+     * @param bool                   $disableOutput
+     * @param callable|null          $callback
      */
-    public function run(BackgroundProcessConfig $config, $disableOutput = true, callable $callback = null)
+    public function run(BackgroundProcessState $state, $disableOutput = true, callable $callback = null)
     {
-        $process = $this->createServerProcess($config);
+        $process = $this->createServerProcess($state);
         if ($disableOutput) {
             $process->disableOutput();
             $callback = null;
@@ -95,12 +95,12 @@ class BackgroundProcess
     }
 
     /**
-     * @param BackgroundProcessConfig $config
+     * @param BackgroundProcessState $state
      * @param null                    $pidFile
      *
      * @return int
      */
-    public function start(BackgroundProcessConfig $config, $pidFile = null)
+    public function start(BackgroundProcessState $state, $pidFile = null)
     {
         $pid = pcntl_fork();
 
@@ -118,21 +118,21 @@ class BackgroundProcess
 
         $manager = new BackgroundProcessStateManager($pidFile);
 
-        $process = $this->createServerProcess($config);
+        $process = $this->createServerProcess($state);
         $process->disableOutput();
         $process->start();
 
-        if (!$process->isRunning($config)) {
+        if (!$process->isRunning($state)) {
             throw new \RuntimeException('Unable to start the server process.');
         }
 
-        $state = new BackgroundProcessState($process->getPid(), $config);
+        $state = new BackgroundProcessState($process->getPid(), $state);
         $manager->add($process->getPid(), $state);
 
         // stop the web server when the lock file is removed
         while ($process->isRunning()) {
             if (!$manager->exists($state->getPid())) {
-                $process->stop(10, $config->getSignal());
+                $process->stop(10, $state->getSignal());
             }
 
             sleep(1);
@@ -165,13 +165,13 @@ class BackgroundProcess
     }
 
     /**
-     * @param BackgroundProcessConfig $config
+     * @param BackgroundProcessState $state
      *
      * @return Process The process
      */
-    private function createServerProcess(BackgroundProcessConfig $config)
+    private function createServerProcess(BackgroundProcessState $state)
     {
-        $argv = $config->getCommand();
+        $argv = $state->getCommand();
         $argc = array_shift($argv);
 
         $finder = new ExecutableFinder();
