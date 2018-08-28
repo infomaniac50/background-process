@@ -108,14 +108,13 @@ SQL;
      */
     public function get(int $pid):  ? BackgroundProcessState
     {
-        /** @var BackgroundProcessState $state */
-        $state = $this->pidDb->querySingle("SELECT state FROM main.processes WHERE pid=$pid");
+        $result = $this->pidDb->querySingle("SELECT pid, command, signal FROM main.processes WHERE pid=$pid", true);
 
-        if (!is_null($state)) {
-            $state = unserialize($state);
+        if (false === $result || count($results) === 0) {
+            return null;
         }
 
-        return $state;
+        return new BackgroundProcessState(...$result);
     }
 
     /**
