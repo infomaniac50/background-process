@@ -162,7 +162,8 @@ SQL;
         $sql = <<<SQL
 CREATE TABLE IF NOT EXISTS main.processes (
     pid INTEGER PRIMARY KEY,
-    state BLOB
+    command TEXT,
+    signal INTEGER
 );
 SQL;
         $this->pidDb->exec($sql);
