@@ -82,11 +82,15 @@ class BackgroundProcess
             $process->disableOutput();
             $callback = null;
         } else {
+            // phpcs:disable Generic.CodeAnalysis.EmptyStatement.DetectedCatch
             try {
                 $process->setTty(true);
                 $callback = null;
             } catch (RuntimeException $e) {
+                // If a TTY is not supported then $callable will not be set to null.
+                // There is no way to check if a TTY is supported without trying to enable it.
             }
+            // phpcs:enable Generic.CodeAnalysis.EmptyStatement.DetectedCatch
         }
 
         $process->run($callback);
