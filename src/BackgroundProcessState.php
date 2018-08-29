@@ -10,8 +10,6 @@
  */
 namespace Cocur\BackgroundProcess;
 
-use Symfony\Component\Process\Process;
-
 /**
  * BackgroundProcessState.
  *
