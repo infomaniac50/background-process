@@ -47,22 +47,24 @@ class BackgroundProcessStateManager
     }
 
     /**
-     * @param int                    $pid
-     * @param BackgroundProcessState $value
+     * @param int    $pid
+     * @param string $command
+     * @param int    $signal
      *
      * @return void
      */
-    public function add(int $pid, BackgroundProcessState $value)
+    public function add(int $pid, $command, $signal)
     {
         $sql = <<<SQL
-INSERT INTO main.processes (pid, state)
+INSERT INTO main.processes (pid, comand, signal)
 VALUES
-    (:pid, :state)
+    (:pid, :command, :signal)
 SQL;
         $statement = $this->pidDb->prepare($sql);
 
         $statement->bindValue('pid', $pid, SQLITE3_INTEGER);
-        $statement->bindValue('state', serialize($value), SQLITE3_BLOB);
+        $statement->bindValue('command', $command, SQLITE3_TEXT);
+        $statement->bindValue('signal', $signal, SQLITE3_INTEGER);
 
         if (false !== $result = $statement->execute()) {
             $result->finalize();
