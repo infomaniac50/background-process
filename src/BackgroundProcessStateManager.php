@@ -51,7 +51,7 @@ class BackgroundProcessStateManager
      * @param string $command
      * @param int    $signal
      *
-     * @return void
+     * @return bool a boolean value indicating if a record was added.
      */
     public function add(int $pid, $command, $signal)
     {
@@ -68,7 +68,11 @@ SQL;
 
         if (false !== $result = $statement->execute()) {
             $result->finalize();
+
+            return $this->pidDb->changes() > 0;
         }
+
+        return false;
     }
 
     /**
@@ -122,7 +126,7 @@ SQL;
     /**
      * @param int $pid
      *
-     * @return void
+     * @return bool a boolean value indicating if a record was removed.
      */
     public function remove(int $pid)
     {
@@ -134,7 +138,11 @@ SQL;
 
         if (false !== $result = $statement->execute()) {
             $result->finalize();
+
+            return $this->pidDb->changes() > 0;
         }
+
+        return false;
     }
 
     /**
