@@ -39,7 +39,7 @@ class BackgroundProcessStateManager
     {
         /** @var SQLite3 $pidDb */
         if (null === $pidDb = $this->getDatabase($pidFile)) {
-            throw new \RuntimeException("Could not open PID state file.");
+            throw new RuntimeException("Could not open PID state file.");
         }
 
         $this->pidDb = $pidDb;
