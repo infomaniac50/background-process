@@ -126,9 +126,15 @@ SQL;
      */
     public function remove(int $pid)
     {
-        $sql = "DELETE FROM main.processes WHERE pid={$pid}";
+        $sql = "DELETE FROM main.processes WHERE pid = :pid";
 
-        $this->pidDb->exec($sql);
+        $statement = $this->pidDb->prepare($sql);
+
+        $statement->bindValue(':pid', $pid, SQLITE3_INTEGER);
+
+        if (false !== $result = $statement->execute()) {
+            $result->finalize();
+        }
     }
 
     /**
